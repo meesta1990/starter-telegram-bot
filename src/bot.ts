@@ -1,200 +1,116 @@
-import { Bot, InlineKeyboard, webhookCallback } from "grammy";
-import { chunk } from "lodash";
-import express from "express";
-import { applyTextEffect, Variant } from "./textEffects";
+import { Telegraf, Markup } from 'telegraf'
+import express from 'express';
 
-import type { Variant as TextEffectVariant } from "./textEffects";
+const expressApp = express();
+const port = process.env.PORT || 3000
+expressApp.get('/', (req, res) => {
+    res.send('Hello World!')
+})
+expressApp.listen(port, () => {
+    console.log(`Listening on port ${port}`)
+})
 
-// Create a bot using the Telegram token
-const bot = new Bot(process.env.TELEGRAM_TOKEN || "");
+const TELEGRAM_BOT_TOKEN = '1812772248:AAFws2Ej6_bDKRbxguR0pQuCSpbkU2NVoFY';
+const bot = new Telegraf(TELEGRAM_BOT_TOKEN)
 
-// Handle the /yo command to greet the user
-bot.command("yo", (ctx) => ctx.reply(`Yo ${ctx.from?.username}`));
+const line1 = ['aldo aldo', 'AmericaH', 'anitra', 'audio Sole 1', 'audio Sole 2'];
+const line2 = ['back2back', 'fai vomitare', 'fate vomitare', 'Fetta di carne'];
+const line3 = ['Futili tentativi','he bought dump it', 'infimad', 'Io sono stato'];
+const line4 = ['lavoro da casa','LO SCHIFO', 'meesta versione definitiva dello schifo'];
+const line5 = ['mooo','motorino', 'nooo', 'Novi', 'pa pa pa pa'];
+const line6 = ['per piacere max','Pranzo xevil 2021', 'ragionamenti complessi', 'Rauuul'];
+const line7 = ['schifoso cane maledetto','se tu avessi fatto sirus'];
+const line8 = ['secondo me è una stronzata','tempo nefasto', 'ti sento agitato'];
+const line9 = ['uno dei peggiori giocatori','Vaffanculo', 'vincerei sempre fate vomitare', 'SBORRO'];
+const line10 = ['video filosofia', 'video muto 1', 'video muto 2'];
+const line11 = ['video non voglio mentirti michele', 'video ubriachezza', 'video vinile'];
+const line12 = ['video vita avara', 'video wow'];
 
-// Handle the /effect command to apply text effects using an inline keyboard
-type Effect = { code: TextEffectVariant; label: string };
-const allEffects: Effect[] = [
-  {
-    code: "w",
-    label: "Monospace",
-  },
-  {
-    code: "b",
-    label: "Bold",
-  },
-  {
-    code: "i",
-    label: "Italic",
-  },
-  {
-    code: "d",
-    label: "Doublestruck",
-  },
-  {
-    code: "o",
-    label: "Circled",
-  },
-  {
-    code: "q",
-    label: "Squared",
-  },
-];
+const whitelist = [-1001204191448];
 
-const effectCallbackCodeAccessor = (effectCode: TextEffectVariant) =>
-  `effect-${effectCode}`;
+bot.command('/start', (ctx) =>{
+    ctx.reply('XevilBot Started! Seleziona dalla chat il vocale del bot Priamo', Markup
+		.keyboard([line1, line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12])
+		.oneTime()
+		.resize()
+	)
 
-const effectsKeyboardAccessor = (effectCodes: string[]) => {
-  const effectsAccessor = (effectCodes: string[]) =>
-    effectCodes.map((code) =>
-      allEffects.find((effect) => effect.code === code)
-    );
-  const effects = effectsAccessor(effectCodes);
-
-  const keyboard = new InlineKeyboard();
-  const chunkedEffects = chunk(effects, 3);
-  for (const effectsChunk of chunkedEffects) {
-    for (const effect of effectsChunk) {
-      effect &&
-        keyboard.text(effect.label, effectCallbackCodeAccessor(effect.code));
-    }
-    keyboard.row();
-  }
-
-  return keyboard;
-};
-
-const textEffectResponseAccessor = (
-  originalText: string,
-  modifiedText?: string
-) =>
-  `Original: ${originalText}` +
-  (modifiedText ? `\nModified: ${modifiedText}` : "");
-
-const parseTextEffectResponse = (
-  response: string
-): {
-  originalText: string;
-  modifiedText?: string;
-} => {
-  const originalText = (response.match(/Original: (.*)/) as any)[1];
-  const modifiedTextMatch = response.match(/Modified: (.*)/);
-
-  let modifiedText;
-  if (modifiedTextMatch) modifiedText = modifiedTextMatch[1];
-
-  if (!modifiedTextMatch) return { originalText };
-  else return { originalText, modifiedText };
-};
-
-bot.command("effect", (ctx) =>
-  ctx.reply(textEffectResponseAccessor(ctx.match), {
-    reply_markup: effectsKeyboardAccessor(
-      allEffects.map((effect) => effect.code)
-    ),
-  })
-);
-
-// Handle inline queries
-const queryRegEx = /effect (monospace|bold|italic) (.*)/;
-bot.inlineQuery(queryRegEx, async (ctx) => {
-  const fullQuery = ctx.inlineQuery.query;
-  const fullQueryMatch = fullQuery.match(queryRegEx);
-  if (!fullQueryMatch) return;
-
-  const effectLabel = fullQueryMatch[1];
-  const originalText = fullQueryMatch[2];
-
-  const effectCode = allEffects.find(
-    (effect) => effect.label.toLowerCase() === effectLabel.toLowerCase()
-  )?.code;
-  const modifiedText = applyTextEffect(originalText, effectCode as Variant);
-
-  await ctx.answerInlineQuery(
-    [
-      {
-        type: "article",
-        id: "text-effect",
-        title: "Text Effects",
-        input_message_content: {
-          message_text: `Original: ${originalText}
-Modified: ${modifiedText}`,
-          parse_mode: "HTML",
-        },
-        reply_markup: new InlineKeyboard().switchInline("Share", fullQuery),
-        url: "http://t.me/EludaDevSmarterBot",
-        description: "Create stylish Unicode text, all within Telegram.",
-      },
-    ],
-    { cache_time: 30 * 24 * 3600 } // one month in seconds
-  );
 });
 
-// Return empty result list for other queries.
-bot.on("inline_query", (ctx) => ctx.answerInlineQuery([]));
-
-// Handle text effects from the effect keyboard
-for (const effect of allEffects) {
-  const allEffectCodes = allEffects.map((effect) => effect.code);
-
-  bot.callbackQuery(effectCallbackCodeAccessor(effect.code), async (ctx) => {
-    const { originalText } = parseTextEffectResponse(ctx.msg?.text || "");
-    const modifiedText = applyTextEffect(originalText, effect.code);
-
-    await ctx.editMessageText(
-      textEffectResponseAccessor(originalText, modifiedText),
-      {
-        reply_markup: effectsKeyboardAccessor(
-          allEffectCodes.filter((code) => code !== effect.code)
-        ),
-      }
-    );
-  });
+for(let i=0;i<line1.length;i++){
+    bot.hears(line1[i], (ctx) => {
+       ctx.replyWithAudio({ source: 'assets/media/audio/' + line1[i] +'.ogg' })
+    });
+}
+for(let i=0;i<line2.length;i++){
+    bot.hears(line2[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line2[i] +'.ogg' })
+    });
+}
+for(let i=0;i<line3.length;i++){
+    bot.hears(line3[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line3[i] +'.ogg' })
+    });
 }
 
-// Handle the /about command
-const aboutUrlKeyboard = new InlineKeyboard().url(
-  "Host your own bot for free.",
-  "https://cyclic.sh/"
-);
-
-// Suggest commands in the menu
-bot.api.setMyCommands([
-  { command: "yo", description: "Be greeted by the bot" },
-  {
-    command: "effect",
-    description: "Apply text effects on the text. (usage: /effect [text])",
-  },
-]);
-
-// Handle all other messages and the /start command
-const introductionMessage = `Hello! I'm a Telegram bot.
-I'm powered by Cyclic, the next-generation serverless computing platform.
-
-<b>Commands</b>
-/yo - Be greeted by me
-/effect [text] - Show a keyboard to apply text effects to [text]`;
-
-const replyWithIntro = (ctx: any) =>
-  ctx.reply(introductionMessage, {
-    reply_markup: aboutUrlKeyboard,
-    parse_mode: "HTML",
-  });
-
-bot.command("start", replyWithIntro);
-bot.on("message", replyWithIntro);
-
-// Start the server
-if (process.env.NODE_ENV === "production") {
-  // Use Webhooks for the production server
-  const app = express();
-  app.use(express.json());
-  app.use(webhookCallback(bot, "express"));
-
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Bot listening on port ${PORT}`);
-  });
-} else {
-  // Use Long Polling for development
-  bot.start();
+for(let i=0;i<line4.length;i++){
+    bot.hears(line4[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line4[i] +'.ogg' })
+    });
 }
+for(let i=0;i<line5.length;i++){
+    bot.hears(line5[i], (ctx) => {
+		ctx.replyWithAudio({ source: 'assets/media/audio/' + line5[i] +'.ogg' })
+    });
+}
+for(let i=0;i<line6.length;i++){
+    bot.hears(line6[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line6[i] +'.ogg' })
+    });
+}
+
+for(let i=0;i<line7.length;i++){
+    bot.hears(line7[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line7[i] +'.ogg' })
+    });
+}
+for(let i=0;i<line8.length;i++){
+    bot.hears(line8[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line8[i] +'.ogg' })
+    });
+}
+for(let i=0;i<line9.length;i++){
+    bot.hears(line9[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line9[i] +'.ogg' })
+    });
+}
+for(let i=0;i<line10.length;i++){
+    bot.hears(line10[i], (ctx) => {
+        ctx.replyWithAudio({ source: 'assets/media/audio/' + line10[i] +'.ogg' })
+    });
+}
+
+//video
+for(let i=0;i<line10.length;i++){
+    bot.hears(line10[i], (ctx) => {
+       const videoName = line10[i].toLowerCase().replace('video ','');
+            ctx.replyWithVideoNote({ source: 'assets/media/video/' + videoName +'.mp4' })
+    });
+}
+for(let i=0;i<line11.length;i++){
+    bot.hears(line11[i], (ctx) => {
+        const videoName = line11[i].toLowerCase().replace('video ','');
+            ctx.replyWithVideoNote({ source: 'assets/media/video/' + videoName +'.mp4' })
+    });
+}
+for(let i=0;i<line12.length;i++){
+    bot.hears(line12[i], (ctx) => {
+        const videoName = line12[i].toLowerCase().replace('video ','');
+            ctx.replyWithVideoNote({ source: 'assets/media/video/' + videoName +'.mp4' })
+    });
+}
+
+bot.catch((e)=>{
+console.log(e);
+})
+bot.startPolling();
